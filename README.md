@@ -1,6 +1,5 @@
 # Tender Parser / Парсер товаров по заявке
 
-**Live demo:** https://parcer.bau-meister.ru
 
 A web application for automated product search based on procurement tender documents. Upload a tender specification (Excel/Word), and the system extracts every line item, searches Yandex Shopping for matching products, optionally enriches results with GigaChat AI analysis, and generates a ready-to-use Excel report.
 
