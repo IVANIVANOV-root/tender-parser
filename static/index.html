@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ru" x-data="app()" :class="{ dark: darkMode }" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Поиск товаров по тендерным заявкам</title>
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+
+    /* ── Scrollbar ── */
+    .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; }
+
+    /* ── Animations ── */
+    .progress-bar { transition: width 0.4s ease; }
+    .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .card-hover:hover { transform: translateY(-1px); }
+    .dropzone-active { border-color: #3b82f6 !important; background-color: rgba(59,130,246,0.07) !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1s linear infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+    .animate-pulse { animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease forwards; }
+
+    /* ── Sidebar links ── */
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.25rem;
+      transition: background-color 0.15s, color 0.15s;
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+      width: 100%;
+      text-align: left;
+    }
+    .sidebar-link svg { flex-shrink: 0; }
+    .sidebar-link.active { background-color: #2563eb; color: #ffffff; box-shadow: 0 4px 14px rgba(37,99,235,0.35); }
+    .sidebar-link:not(.active) { color: #64748b; }
+    .sidebar-link:not(.active):hover { color: #1e293b; background-color: #f1f5f9; }
+    .dark .sidebar-link:not(.active) { color: #94a3b8; }
+    .dark .sidebar-link:not(.active):hover { color: #ffffff; background-color: rgba(51,65,85,0.6); }
+
+    /* ── Status badge ── */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.125rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      line-height: 1.5;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background-color: #2563eb;
+      color: #ffffff;
+      border-radius: 0.75rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      transition: background-color 0.15s, box-shadow 0.15s;
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+    }
+    .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; box-shadow: 0 4px 14px rgba(37,99,235,0.3); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      transition: background-color 0.15s;
+      cursor: pointer;
+      /* light default */
+      background-color: #ffffff;
+      color: #374151;
+      border: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+    .btn-secondary:hover { background-color: #f8fafc; }
+    .dark .btn-secondary { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+    .dark .btn-secondary:hover { background-color: #475569; }
+
+    .btn-danger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background-color: rgba(220,38,38,0.85);
+      color: #ffffff;
+      border-radius: 0.75rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      transition: background-color 0.15s;
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+    }
+    .btn-danger:hover { background-color: #dc2626; }
+
+    /* ── Input fields — rounded, light text in dark mode ── */
+    .input-field {
+      width: 100%;
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.875rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      border: 1px solid #e2e8f0;
+      background-color: #ffffff;
+      color: #0f172a;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+    .input-field::placeholder { color: #94a3b8; }
+    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.18); }
+    .dark .input-field { background-color: #1e293b; border-color: #475569; color: #f1f5f9; }
+    .dark .input-field::placeholder { color: #64748b; }
+    .dark .input-field:focus { border-color: #3b82f6; }
+    select.input-field { appearance: none; -webkit-appearance: none; }
+    .dark select.input-field option { background-color: #1e293b; color: #f1f5f9; }
+
+    /* ── Cards ── */
+    .card {
+      border-radius: 1rem;
+      border: 1px solid #e2e8f0;
+      background-color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .dark .card { background-color: rgba(30,41,59,0.65); border-color: rgba(51,65,85,0.6); box-shadow: none; }
+
+    /* ── Section title ── */
+    .section-title { font-size: 1.125rem; font-weight: 600; color: #0f172a; }
+    .dark .section-title { color: #f1f5f9; }
+
+    /* ── Table rows ── */
+    .table-row { transition: background-color 0.1s; }
+    .table-row:hover { background-color: #f8fafc; }
+    .dark .table-row:hover { background-color: rgba(51,65,85,0.35); }
+  </style>
+</head>
+<body class="font-sans min-h-screen transition-colors duration-200"
+      :class="darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'">
+
+<!-- ═══════════════════ LOGIN PAGE ═══════════════════ -->
+<div x-show="!user" x-cloak class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="flex items-center justify-center gap-3 mb-8">
+      <div class="flex-shrink-0 w-12 h-12 rounded-2xl bg-brand-600 shadow-xl shadow-brand-600/40 flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <p class="text-base font-semibold" :class="darkMode ? 'text-white' : 'text-slate-900'">Поиск товаров по заявкам</p>
+    </div>
+    <!-- Card -->
+    <div class="card p-6">
+      <form @submit.prevent="doLogin()">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium mb-1.5" :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Логин</label>
+            <input x-model="loginForm.username" type="text" placeholder="username"
+                   class="input-field" autocomplete="username" required>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1.5" :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Пароль</label>
+            <input x-model="loginForm.password" type="password" placeholder="••••••••"
+                   class="input-field" autocomplete="current-password" required>
+          </div>
+          <div x-show="loginError" class="text-sm text-red-400 text-center" x-text="loginError"></div>
+          <button type="submit" class="btn-primary w-full justify-center py-2.5" :disabled="loginLoading">
+            <svg x-show="loginLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            <span x-text="loginLoading ? 'Вход...' : 'Войти'"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+    <!-- Theme toggle -->
+    <div class="flex justify-center mt-4">
+      <button @click="darkMode=!darkMode" class="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
+              :class="darkMode ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-600'">
+        <span x-text="darkMode ? '☀ Светлая тема' : '☾ Тёмная тема'"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN APP ═══════════════════ -->
+<div x-show="user" x-cloak class="flex h-screen overflow-hidden">
+
+  <!-- ── Sidebar ── -->
+  <aside class="w-60 flex-shrink-0 flex flex-col border-r transition-colors"
+         :class="darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'">
+    <!-- Brand -->
+    <div class="flex items-center gap-3 px-5 py-5 border-b" :class="darkMode ? 'border-slate-800' : 'border-slate-100'">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-600/30 flex-shrink-0">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <div class="text-sm font-bold leading-tight" :class="darkMode ? 'text-white' : 'text-slate-900'">Тендерный поиск</div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+      <button @click="view='dashboard'" :class="view==='dashboard' ? 'active' : ''" class="sidebar-link w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Дашборд
+      </button>
+      <button @click="openNewTender()" :class="view==='new-tender' ? 'active' : ''" class="sidebar-link w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+        Новая заявка
+      </button>
+      <button @click="view='tenders';loadTenders()" :class="view==='tenders'||view==='tender-detail' ? 'active' : ''" class="sidebar-link w-full">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Мои заявки
+      </button>
+      <template x-if="user && (user.role==='admin'||user.role==='root')">
+        <button @click="view='admin';loadUsers()" :class="view==='admin' ? 'active' : ''" class="sidebar-link w-full">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          Пользователи
+        </button>
+      </template>
+      <template x-if="user && user.role==='root'">
+        <button @click="view='system-settings';loadSysSettings()" :class="view==='system-settings' ? 'active' : ''" class="sidebar-link w-full">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          Система
+        </button>
+      </template>
+    </nav>
+
+    <!-- User info + Logout -->
+    <div class="px-3 py-4 border-t" :class="darkMode ? 'border-slate-800' : 'border-slate-100'">
+      <div class="flex items-center gap-2 px-2 mb-3">
+        <div class="w-8 h-8 rounded-full bg-brand-600/20 flex items-center justify-center text-brand-400 font-bold text-sm"
+             x-text="user ? user.username[0].toUpperCase() : ''"></div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium truncate" :class="darkMode ? 'text-slate-200' : 'text-slate-800'" x-text="user?.username"></div>
+          <div class="text-xs capitalize" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="roleLabel(user?.role)"></div>
+        </div>
+        <button @click="darkMode=!darkMode" class="p-1.5 rounded-lg transition-colors"
+                :class="darkMode ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'"
+                :title="darkMode ? 'Светлая тема' : 'Тёмная тема'">
+          <svg x-show="darkMode" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+          <svg x-show="!darkMode" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+        </button>
+      </div>
+      <button @click="doLogout()" class="sidebar-link w-full !text-red-400 hover:!text-red-300 hover:!bg-red-500/10">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Выйти
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="flex-1 overflow-y-auto scrollbar-thin">
+
+    <!-- Toast notifications -->
+    <div class="fixed top-4 right-4 z-50 space-y-2" style="pointer-events:none">
+      <template x-for="toast in toasts" :key="toast.id">
+        <div class="fade-in flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-sm"
+             :class="toast.type==='success' ? 'bg-green-600 text-white' : toast.type==='error' ? 'bg-red-600 text-white' : 'bg-brand-600 text-white'">
+          <svg x-show="toast.type==='success'" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          <svg x-show="toast.type==='error'" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          <span x-text="toast.message"></span>
+        </div>
+      </template>
+    </div>
+
+    <!-- ══ DASHBOARD ══ -->
+    <div x-show="view==='dashboard'" x-cloak class="p-6 max-w-5xl mx-auto fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold" :class="darkMode ? 'text-white' : 'text-slate-900'">Дашборд</h2>
+          <p class="text-sm mt-0.5" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Обзор активности</p>
+        </div>
+        <button @click="openNewTender()" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Новая заявка
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="card p-5 card-hover">
+          <div class="text-xs font-medium mb-1" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Всего заявок</div>
+          <div class="text-3xl font-bold" :class="darkMode ? 'text-white' : 'text-slate-900'" x-text="tenders.length"></div>
+        </div>
+        <div class="card p-5 card-hover">
+          <div class="text-xs font-medium mb-1" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Завершено</div>
+          <div class="text-3xl font-bold text-green-500" x-text="tenders.filter(t=>t.status==='done').length"></div>
+        </div>
+        <div class="card p-5 card-hover">
+          <div class="text-xs font-medium mb-1" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">В обработке</div>
+          <div class="text-3xl font-bold text-amber-400" x-text="tenders.filter(t=>['parsing','searching'].includes(t.status)).length"></div>
+        </div>
+      </div>
+
+      <!-- Recent tenders header -->
+      <div class="card px-5 py-4 flex items-center justify-between mb-3">
+        <span class="section-title">Последние заявки</span>
+        <button @click="view='tenders';loadTenders()" class="text-xs text-brand-400 hover:text-brand-300 font-medium">Все →</button>
+      </div>
+
+      <!-- Empty state -->
+      <div x-show="tenders.length===0" class="card p-10 text-center text-sm" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+        Нет заявок. Загрузите первую!
+      </div>
+
+      <!-- Recent tender cards -->
+      <div class="space-y-3">
+        <template x-for="t in tenders.slice(0,5)" :key="t.id">
+          <div class="card p-4 card-hover cursor-pointer group" @click="openTenderDetail(t.id)">
+            <div class="flex items-center gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold truncate" :class="darkMode ? 'text-slate-100' : 'text-slate-900'" x-text="t.original_name"></span>
+                  <span :class="statusBadgeClass(t.status)" class="status-badge flex-shrink-0" x-text="statusLabel(t.status)"></span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="fmtDate(t.created_at)"></span>
+                  <span x-show="t.item_count" class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="t.item_count + ' поз.'"></span>
+                </div>
+              </div>
+              <button @click.stop="confirmDeleteTender(t)" class="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      :class="darkMode ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ══ NEW TENDER ══ -->
+    <div x-show="view==='new-tender'" x-cloak class="p-6 max-w-2xl mx-auto fade-in">
+      <h2 class="text-2xl font-bold mb-1" :class="darkMode ? 'text-white' : 'text-slate-900'">Новая заявка</h2>
+      <p class="text-sm mb-6" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Загрузите файл тендерной заявки для поиска</p>
+
+      <div class="card p-6 space-y-5">
+        <!-- Drop zone -->
+        <div id="dropzone"
+             class="border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200"
+             :class="[darkMode ? 'border-slate-600 hover:border-brand-500' : 'border-slate-200 hover:border-brand-400',
+                      uploadFile ? (darkMode ? 'border-brand-500 bg-brand-500/5' : 'border-brand-400 bg-brand-50') : '']"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="$event.target.closest('#dropzone').classList.add('dropzone-active')"
+             @dragleave.prevent="$event.target.closest('#dropzone').classList.remove('dropzone-active')"
+             @drop.prevent="handleFileDrop($event)">
+          <input x-ref="fileInput" type="file"
+                 accept=".html,.htm,.xlsx,.docx,.rtf,.xml"
+                 class="hidden" @change="handleFileSelect($event)">
+
+          <div x-show="!uploadFile">
+            <div class="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                 :class="darkMode ? 'bg-slate-700' : 'bg-slate-100'">
+              <svg class="w-7 h-7" :class="darkMode ? 'text-slate-400' : 'text-slate-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <p class="text-sm font-medium" :class="darkMode ? 'text-slate-300' : 'text-slate-700'">Перетащите файл сюда или нажмите для выбора</p>
+            <p class="text-xs mt-1.5" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">Поддерживается: HTML, HTM, XLSX, DOCX, RTF, XML</p>
+          </div>
+
+          <div x-show="uploadFile" class="flex items-center justify-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-brand-600/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="text-left">
+              <p class="text-sm font-medium" :class="darkMode ? 'text-slate-200' : 'text-slate-800'" x-text="uploadFile?.name"></p>
+              <p class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="uploadFile ? fmtSize(uploadFile.size) : ''"></p>
+            </div>
+            <button @click.stop="uploadFile=null" class="ml-2 p-1 rounded-lg" :class="darkMode ? 'text-slate-500 hover:text-red-400' : 'text-slate-400 hover:text-red-500'">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Results per item -->
+        <div>
+          <label class="block text-sm font-medium mb-2" :class="darkMode ? 'text-slate-300' : 'text-slate-700'">
+            Результатов поиска на позицию
+          </label>
+          <div class="flex items-center gap-3">
+            <input type="range" x-model.number="uploadResultsPerItem" min="1" max="20" step="1"
+                   class="flex-1 accent-brand-500">
+            <div class="w-12 text-center font-bold text-brand-400 text-lg" x-text="uploadResultsPerItem"></div>
+          </div>
+          <p class="text-xs mt-1" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+            Yandex Search API вернёт до <span class="font-medium" x-text="uploadResultsPerItem"></span> предложений по каждой позиции заявки
+          </p>
+        </div>
+
+        <!-- Note about YandexGPT -->
+        <div class="flex gap-2.5 p-3.5 rounded-xl" :class="darkMode ? 'bg-slate-700/50' : 'bg-blue-50'">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p class="text-xs leading-relaxed" :class="darkMode ? 'text-slate-400' : 'text-slate-600'">
+            YandexGPT Lite автоматически распознает таблицу заявки в любом формате. После загрузки вы увидите позиции с характеристиками перед запуском поиска.
+          </p>
+        </div>
+
+        <div class="flex gap-3">
+          <button @click="view='dashboard'" class="btn-secondary flex-1 justify-center">Отмена</button>
+          <button @click="doUpload()" :disabled="!uploadFile || uploadLoading" class="btn-primary flex-1 justify-center">
+            <svg x-show="uploadLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            <span x-text="uploadLoading ? 'Загрузка...' : 'Загрузить и распознать'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TENDERS LIST ══ -->
+    <div x-show="view==='tenders'" x-cloak class="p-6 max-w-5xl mx-auto fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold" :class="darkMode ? 'text-white' : 'text-slate-900'">Мои заявки</h2>
+          <p class="text-sm mt-0.5" :class="darkMode ? 'text-slate-400' : 'text-slate-500'" x-text="tenders.length + ' заявок'"></p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button x-show="selectedTenders.length > 0" @click="deleteSelectedTenders()"
+                  class="btn-danger">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Удалить (<span x-text="selectedTenders.length"></span>)
+          </button>
+          <button @click="openNewTender()" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Новая
+          </button>
+        </div>
+      </div>
+
+      <div x-show="tenders.length===0" class="card p-12 text-center">
+        <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="text-sm" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Нет загруженных заявок</p>
+        <button @click="openNewTender()" class="btn-primary mt-4">Загрузить первую</button>
+      </div>
+
+      <div class="space-y-3">
+        <template x-for="t in tenders" :key="t.id">
+          <div class="card p-4 card-hover cursor-pointer group" @click="openTenderDetail(t.id)">
+            <div class="flex items-center gap-3">
+              <!-- Checkbox -->
+              <input type="checkbox" @click.stop :checked="selectedTenders.includes(t.id)"
+                     @change.stop="toggleSelectTender(t.id)"
+                     class="w-4 h-4 rounded accent-brand-500 flex-shrink-0 cursor-pointer">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold truncate" :class="darkMode ? 'text-slate-100' : 'text-slate-900'" x-text="t.original_name"></span>
+                  <span :class="statusBadgeClass(t.status)" class="status-badge flex-shrink-0" x-text="statusLabel(t.status)"></span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5">
+                  <span class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="fmtDate(t.created_at)"></span>
+                  <span x-show="t.item_count" class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="t.item_count + ' позиций'"></span>
+                </div>
+              </div>
+              <!-- Progress bar if searching -->
+              <div x-show="t.status==='searching'" class="w-32">
+                <div class="flex justify-between text-xs mb-1" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">
+                  <span>Поиск...</span>
+                  <span x-text="t.progress+'%'"></span>
+                </div>
+                <div class="h-1.5 rounded-full" :class="darkMode ? 'bg-slate-700' : 'bg-slate-200'">
+                  <div class="h-1.5 rounded-full bg-brand-500 progress-bar" :style="`width:${t.progress||0}%`"></div>
+                </div>
+              </div>
+              <button @click.stop="confirmDeleteTender(t)" class="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      :class="darkMode ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ══ TENDER DETAIL ══ -->
+    <div x-show="view==='tender-detail'" x-cloak class="p-6 max-w-7xl mx-auto fade-in">
+      <template x-if="currentTender">
+        <div>
+          <!-- Header -->
+          <div class="flex items-start gap-4 mb-6">
+            <button @click="view='tenders'" class="p-2 rounded-xl mt-1 transition-colors"
+                    :class="darkMode ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div class="flex-1 min-w-0">
+              <h2 class="text-xl font-bold truncate" :class="darkMode ? 'text-white' : 'text-slate-900'" x-text="currentTender.original_name"></h2>
+              <div class="flex items-center gap-3 mt-1">
+                <span :class="statusBadgeClass(currentTender.status)" class="status-badge" x-text="statusLabel(currentTender.status)"></span>
+                <span class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="fmtDate(currentTender.created_at)"></span>
+                <span x-show="currentTender.items" class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'"
+                      x-text="currentTender.items?.length + ' позиций'"></span>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <!-- Search button -->
+              <template x-if="currentTender.status === 'parsed'">
+                <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-2 px-3 py-2 rounded-xl" :class="darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'">
+                    <span class="text-xs" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Рез. на позицию:</span>
+                    <input type="number" x-model.number="searchResultsCount" min="1" max="20"
+                           class="w-12 text-center text-sm font-bold bg-transparent border-0 outline-none"
+                           :class="darkMode ? 'text-brand-400' : 'text-brand-600'">
+                  </div>
+                  <button @click="startSearch()" class="btn-primary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    Запустить поиск
+                  </button>
+                </div>
+              </template>
+              <!-- Re-search button -->
+              <template x-if="currentTender.status === 'done'">
+                <button @click="startSearch()" class="btn-secondary">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  Повторить
+                </button>
+              </template>
+              <!-- Download buttons -->
+              <template x-if="currentTender.status === 'done'">
+                <div class="flex gap-2">
+                  <button @click="downloadReport('xlsx')" class="btn-secondary">
+                    <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    XLSX
+                  </button>
+                  <button @click="downloadReport('pdf')" class="btn-secondary">
+                    <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    PDF
+                  </button>
+                </div>
+              </template>
+              <!-- Delete button always visible -->
+              <button @click="confirmDeleteTenderAndBack(currentTender)" class="btn-danger">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Удалить
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress bar (searching) -->
+          <template x-if="currentTender.status==='searching'">
+            <div class="card p-5 mb-5">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <svg class="animate-spin w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                  <span class="text-sm font-medium" :class="darkMode ? 'text-slate-300' : 'text-slate-700'">Идёт поиск...</span>
+                </div>
+                <span class="text-sm font-bold text-brand-400" x-text="(currentTender.progress||0)+'%'"></span>
+              </div>
+              <div class="h-2 rounded-full" :class="darkMode ? 'bg-slate-700' : 'bg-slate-200'">
+                <div class="h-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-bar"
+                     :style="`width:${currentTender.progress||0}%`"></div>
+              </div>
+              <p class="text-xs mt-2" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="searchProgressMsg"></p>
+            </div>
+          </template>
+
+          <!-- Items table -->
+          <div class="card overflow-hidden">
+            <div class="px-5 py-3.5 border-b" :class="darkMode ? 'border-slate-700/60' : 'border-slate-100'">
+              <span class="section-title">Позиции заявки и результаты поиска</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-xs font-semibold uppercase tracking-wider"
+                      :class="darkMode ? 'bg-slate-800/80 text-slate-400 border-b border-slate-700/60' : 'bg-slate-50 text-slate-500 border-b border-slate-100'">
+                    <th class="px-4 py-3 text-left w-10">#</th>
+                    <th class="px-4 py-3 text-left min-w-64">Наименование</th>
+                    <th class="px-4 py-3 text-right w-28">Кол-во</th>
+                    <th class="px-4 py-3 text-right w-28">Макс. цена</th>
+                    <th class="px-4 py-3 text-left min-w-40">Поставщик</th>
+                    <th class="px-4 py-3 text-right w-28">Цена</th>
+                    <th class="px-4 py-3 text-left">Ссылка</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y" :class="darkMode ? 'divide-slate-700/40' : 'divide-slate-100'">
+                  <template x-for="(row, ridx) in tenderRows()" :key="ridx">
+                    <tr class="table-row"
+                        :class="row.type==='offer' && row.oidx===0 && row.offer.price>0 ? (darkMode ? 'bg-green-900/10' : 'bg-green-50/60') : ''">
+                      <!-- # -->
+                      <td class="px-4 py-2.5 text-xs align-top" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+                        <span x-show="row.type==='no-result' || row.oidx===0" x-text="row.item.num"></span>
+                      </td>
+                      <!-- Наименование -->
+                      <td class="px-4 py-2.5 align-top">
+                        <div x-show="row.type==='no-result' || row.oidx===0">
+                          <div class="font-medium text-sm" :class="darkMode ? 'text-slate-200' : 'text-slate-800'" x-text="row.item.name"></div>
+                          <div x-show="row.item.description" class="text-xs mt-1 leading-relaxed" :class="darkMode ? 'text-slate-400' : 'text-slate-500'" x-text="row.item.description"></div>
+                          <div x-show="row.type==='no-result'" class="flex items-center gap-3 mt-1">
+                            <span class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="row.item.qty + ' ' + row.item.unit"></span>
+                            <span x-show="row.item.max_price" class="text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="'макс. ' + fmtNum(row.item.max_price) + ' ₽'"></span>
+                            <span x-show="currentTender.status==='done'" class="status-badge bg-red-500/15 text-red-400">Не найдено</span>
+                            <span x-show="currentTender.status==='parsed'" class="status-badge" :class="darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'">Ожидает поиска</span>
+                            <span x-show="currentTender.status==='searching'" class="status-badge bg-amber-500/15 text-amber-400 animate-pulse">Ищем...</span>
+                          </div>
+                        </div>
+                      </td>
+                      <!-- Кол-во -->
+                      <td class="px-4 py-2.5 text-right text-xs align-top" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">
+                        <span x-show="row.oidx===0 && row.type==='offer'" x-text="row.item.qty + ' ' + row.item.unit"></span>
+                      </td>
+                      <!-- Макс. цена -->
+                      <td class="px-4 py-2.5 text-right text-xs align-top" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">
+                        <span x-show="row.oidx===0 && row.type==='offer' && row.item.max_price" x-text="fmtNum(row.item.max_price) + ' ₽'"></span>
+                      </td>
+                      <!-- Поставщик -->
+                      <td class="px-4 py-2.5 text-xs align-top" :class="darkMode ? 'text-slate-400' : 'text-slate-600'">
+                        <span x-show="row.type==='offer'" x-text="row.offer.supplier"></span>
+                      </td>
+                      <!-- Цена -->
+                      <td class="px-4 py-2.5 text-right align-top">
+                        <template x-if="row.type==='offer'">
+                          <span>
+                            <span x-show="row.offer.price>0"
+                                  class="font-semibold text-sm"
+                                  :class="row.oidx===0 ? 'text-green-500' : (darkMode ? 'text-slate-300' : 'text-slate-700')"
+                                  x-text="fmtNum(row.offer.price) + ' ₽'"></span>
+                            <span x-show="!row.offer.price" class="text-xs" :class="darkMode ? 'text-slate-600' : 'text-slate-400'">н/д</span>
+                          </span>
+                        </template>
+                      </td>
+                      <!-- Ссылка -->
+                      <td class="px-4 py-2.5 align-top max-w-xs">
+                        <a x-show="row.type==='offer' && row.offer.url" :href="row.offer.url" target="_blank" @click.stop
+                           class="text-xs text-brand-400 hover:text-brand-300 hover:underline line-clamp-2 block"
+                           x-text="row.offer.title || row.offer.url"></a>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ══ PROFILE / SETTINGS ══ -->
+    <div x-show="view==='profile'" x-cloak class="p-6 max-w-xl mx-auto fade-in">
+      <h2 class="text-2xl font-bold mb-1" :class="darkMode ? 'text-white' : 'text-slate-900'">Настройки</h2>
+      <p class="text-sm mb-6" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Управление вашим аккаунтом</p>
+
+      <div class="space-y-4">
+        <!-- GigaChat token -->
+        <div class="card p-5">
+          <h3 class="font-semibold text-sm mb-3" :class="darkMode ? 'text-slate-200' : 'text-slate-800'">
+            Токен GigaChat
+          </h3>
+          <p class="text-xs mb-3" :class="darkMode ? 'text-slate-500' : 'text-slate-500'">
+            Если не указан — используется токен системного администратора
+          </p>
+          <div class="space-y-3">
+            <input x-model="profileForm.token" type="password"
+                   :placeholder="user?.has_token ? '••••••••••••••••' : 'Введите Basic Auth токен GigaChat'"
+                   class="input-field font-mono text-xs">
+            <div class="flex gap-2">
+              <button @click="saveToken()" class="btn-primary">Сохранить токен</button>
+              <button x-show="user?.has_token" @click="clearToken()" class="btn-danger">Удалить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change password -->
+        <div class="card p-5">
+          <h3 class="font-semibold text-sm mb-3" :class="darkMode ? 'text-slate-200' : 'text-slate-800'">Смена пароля</h3>
+          <div class="space-y-3">
+            <input x-model="profileForm.newPassword" type="password" placeholder="Новый пароль" class="input-field">
+            <input x-model="profileForm.confirmPassword" type="password" placeholder="Повторите пароль" class="input-field">
+            <div x-show="profileForm.passwordError" class="text-xs text-red-400" x-text="profileForm.passwordError"></div>
+            <button @click="changePassword()" class="btn-primary">Сменить пароль</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN — USERS ══ -->
+    <div x-show="view==='admin'" x-cloak class="p-6 max-w-4xl mx-auto fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold" :class="darkMode ? 'text-white' : 'text-slate-900'">Пользователи</h2>
+          <p class="text-sm mt-0.5" :class="darkMode ? 'text-slate-400' : 'text-slate-500'" x-text="adminUsers.length + ' пользователей'"></p>
+        </div>
+        <button @click="showCreateUser=true" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Добавить
+        </button>
+      </div>
+
+      <!-- Create user form -->
+      <div x-show="showCreateUser" class="card p-5 mb-5">
+        <h3 class="font-semibold text-sm mb-4" :class="darkMode ? 'text-slate-200' : 'text-slate-800'">Новый пользователь</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <input x-model="newUserForm.username" type="text" placeholder="Логин" class="input-field">
+          <input x-model="newUserForm.password" type="password" placeholder="Пароль" class="input-field">
+          <select x-model="newUserForm.role" class="input-field">
+            <option value="user">Пользователь</option>
+            <template x-if="user?.role==='root'">
+              <option value="admin">Администратор</option>
+            </template>
+          </select>
+          <div class="flex gap-2">
+            <button @click="createUser()" class="btn-primary flex-1 justify-center">Создать</button>
+            <button @click="showCreateUser=false" class="btn-secondary flex-1 justify-center">Отмена</button>
+          </div>
+        </div>
+        <div x-show="newUserForm.error" class="text-xs text-red-400 mt-2" x-text="newUserForm.error"></div>
+      </div>
+
+      <!-- Users table -->
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs font-semibold uppercase tracking-wider"
+                :class="darkMode ? 'bg-slate-800/80 text-slate-400 border-b border-slate-700/60' : 'bg-slate-50 text-slate-500 border-b border-slate-100'">
+              <th class="px-4 py-3 text-left">Пользователь</th>
+              <th class="px-4 py-3 text-left">Роль</th>
+              <th class="px-4 py-3 text-left">Создан</th>
+              <th class="px-4 py-3 text-right">Действия</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" :class="darkMode ? 'divide-slate-700/40' : 'divide-slate-100'">
+            <template x-for="u in adminUsers" :key="u.id">
+              <tr class="table-row">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-brand-600/20 flex items-center justify-center text-brand-400 text-xs font-bold"
+                         x-text="u.username[0].toUpperCase()"></div>
+                    <span class="font-medium" :class="darkMode ? 'text-slate-200' : 'text-slate-800'" x-text="u.username"></span>
+                  </div>
+                </td>
+                <td class="px-4 py-3">
+                  <span :class="u.role==='root' ? 'bg-purple-500/15 text-purple-400' : u.role==='admin' ? 'bg-brand-500/15 text-brand-400' : (darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500')"
+                        class="status-badge" x-text="roleLabel(u.role)"></span>
+                </td>
+                <td class="px-4 py-3 text-xs" :class="darkMode ? 'text-slate-500' : 'text-slate-400'" x-text="fmtDate(u.created_at)"></td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <template x-if="u.role !== 'root' && user?.role === 'root'">
+                      <button @click="toggleUserRole(u)"
+                              class="text-xs px-2 py-1 rounded-lg transition-colors"
+                              :class="u.role==='admin' ? 'text-purple-400 hover:bg-purple-500/10' : 'text-slate-400 hover:bg-slate-500/10 dark:text-slate-500'"
+                              :title="u.role==='admin' ? 'Понизить до пользователя' : 'Повысить до администратора'"
+                              x-text="u.role==='admin' ? '↓ В пользователи' : '↑ В админы'">
+                      </button>
+                    </template>
+                    <button @click="openChangePassword(u)" class="text-xs text-brand-400 hover:text-brand-300 px-2 py-1 rounded-lg hover:bg-brand-500/10 transition-colors">
+                      Сменить пароль
+                    </button>
+                    <template x-if="u.role !== 'root'">
+                      <button @click="confirmDeleteUser(u)" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors">
+                        Удалить
+                      </button>
+                    </template>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Change password modal -->
+      <div x-show="changePwdUser" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" @click.self="changePwdUser=null">
+        <div class="w-full max-w-sm card p-6 fade-in">
+          <h3 class="font-semibold mb-4" :class="darkMode ? 'text-slate-100' : 'text-slate-900'"
+              x-text="'Смена пароля: ' + (changePwdUser?.username || '')"></h3>
+          <div class="space-y-3">
+            <input x-model="changePwdForm.password" type="password" placeholder="Новый пароль" class="input-field">
+            <input x-model="changePwdForm.confirm" type="password" placeholder="Повторите" class="input-field">
+            <div x-show="changePwdForm.error" class="text-xs text-red-400" x-text="changePwdForm.error"></div>
+            <div class="flex gap-2">
+              <button @click="doChangePasswordAdmin()" class="btn-primary flex-1 justify-center">Сохранить</button>
+              <button @click="changePwdUser=null" class="btn-secondary flex-1 justify-center">Отмена</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SYSTEM SETTINGS (root) ══ -->
+    <div x-show="view==='system-settings'" x-cloak class="p-6 max-w-xl mx-auto fade-in">
+      <h2 class="text-2xl font-bold mb-1" :class="darkMode ? 'text-white' : 'text-slate-900'">Система</h2>
+      <p class="text-sm mb-6" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">Настройки Yandex API — поиск и LLM</p>
+
+      <div class="space-y-4">
+        <div class="card p-5">
+          <h3 class="font-semibold text-sm mb-1" :class="darkMode ? 'text-slate-200' : 'text-slate-800'">Yandex API Key</h3>
+          <p class="text-xs mb-3" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+            Используется для Yandex Search API и YandexGPT Lite
+          </p>
+          <input x-model="sysSettings.yandex_api_key" type="text"
+                 placeholder="AQVNy..." class="input-field font-mono text-xs">
+        </div>
+
+        <div class="card p-5">
+          <h3 class="font-semibold text-sm mb-1" :class="darkMode ? 'text-slate-200' : 'text-slate-800'">Yandex Folder ID</h3>
+          <p class="text-xs mb-3" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+            ID каталога в Yandex Cloud — нужен для YandexGPT (cloud.yandex.ru → каталог → обзор)
+          </p>
+          <input x-model="sysSettings.yandex_folder_id" type="text"
+                 placeholder="b1g..." class="input-field font-mono text-xs">
+        </div>
+
+        <button @click="saveSysSettings()" class="btn-primary">Сохранить настройки</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function app() {
+  return {
+    darkMode: localStorage.getItem('darkMode') !== 'false',
+    user: null,
+    view: 'dashboard',
+
+    // Login
+    loginForm: { username: '', password: '' },
+    loginError: '',
+    loginLoading: false,
+
+    // Upload
+    uploadFile: null,
+    uploadResultsPerItem: 5,
+    uploadLoading: false,
+
+    // Tenders
+    tenders: [],
+    currentTender: null,
+    searchResultsCount: 5,
+    searchProgressMsg: '',
+    sseSource: null,
+    selectedTenders: [],
+
+    // Profile
+    profileForm: { token: '', newPassword: '', confirmPassword: '', passwordError: '' },
+
+    // Admin
+    adminUsers: [],
+    showCreateUser: false,
+    newUserForm: { username: '', password: '', role: 'user', error: '' },
+    changePwdUser: null,
+    changePwdForm: { password: '', confirm: '', error: '' },
+
+    // System settings
+    sysSettings: { yandex_api_key: '', yandex_folder_id: '' },
+
+    // Toasts
+    toasts: [],
+
+    // ── Init ──
+    async init() {
+      this.$watch('darkMode', v => localStorage.setItem('darkMode', v))
+      try {
+        const me = await this.api('GET', '/api/auth/me')
+        this.user = me
+        await this.loadTenders()
+      } catch { this.user = null }
+    },
+
+    // ── API helper ──
+    async api(method, url, body = null) {
+      const opts = { method, credentials: 'include', headers: {} }
+      if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body) }
+      const r = await fetch(url, opts)
+      if (r.status === 401) { this.user = null; throw new Error('Unauthorized') }
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail: r.statusText }))
+        throw new Error(err.detail || r.statusText)
+      }
+      return r.json()
+    },
+
+    toast(message, type = 'success') {
+      const id = Date.now()
+      this.toasts.push({ id, message, type })
+      setTimeout(() => this.toasts = this.toasts.filter(t => t.id !== id), 3500)
+    },
+
+    // ── Auth ──
+    async doLogin() {
+      this.loginLoading = true; this.loginError = ''
+      try {
+        this.user = await this.api('POST', '/api/auth/login', this.loginForm)
+        await this.loadTenders()
+        this.view = 'dashboard'
+      } catch (e) {
+        this.loginError = e.message
+      } finally { this.loginLoading = false }
+    },
+
+    async doLogout() {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      this.user = null; this.tenders = []
+    },
+
+    // ── Tenders ──
+    async loadTenders() {
+      try {
+        this.tenders = await this.api('GET', '/api/tenders')
+      } catch {}
+    },
+
+    openNewTender() {
+      this.uploadFile = null; this.uploadLoading = false
+      this.view = 'new-tender'
+    },
+
+    handleFileDrop(e) {
+      e.target.closest('#dropzone')?.classList.remove('dropzone-active')
+      const f = e.dataTransfer.files[0]
+      if (f) this.uploadFile = f
+    },
+
+    handleFileSelect(e) {
+      this.uploadFile = e.target.files[0] || null
+    },
+
+    async doUpload() {
+      if (!this.uploadFile) return
+      this.uploadLoading = true
+      try {
+        const fd = new FormData()
+        fd.append('file', this.uploadFile)
+        fd.append('results_per_item', this.uploadResultsPerItem)
+        const r = await fetch('/api/tenders/upload', { method: 'POST', credentials: 'include', body: fd })
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({ detail: r.statusText }))
+          throw new Error(err.detail || r.statusText)
+        }
+        const data = await r.json()
+        this.toast('Файл загружен, идёт распознавание...')
+        await this.loadTenders()
+        // Wait for parsing then open detail
+        setTimeout(() => this.openTenderDetail(data.tender_id), 2000)
+      } catch (e) {
+        this.toast(e.message, 'error')
+      } finally { this.uploadLoading = false }
+    },
+
+    async openTenderDetail(id) {
+      this.view = 'tender-detail'
+      this.currentTender = null
+      try {
+        this.currentTender = await this.api('GET', `/api/tenders/${id}`)
+        this.searchResultsCount = this.currentTender.results_per_item || 5
+        if (['parsing', 'searching'].includes(this.currentTender.status)) {
+          this.subscribeSSE(id)
+        }
+      } catch (e) {
+        this.toast(e.message, 'error')
+      }
+    },
+
+    subscribeSSE(tenderId) {
+      if (this.sseSource) { this.sseSource.close(); this.sseSource = null }
+      this.sseSource = new EventSource(`/api/tenders/${tenderId}/stream`)
+      this.sseSource.onmessage = async (e) => {
+        const data = JSON.parse(e.data)
+        if (this.currentTender) {
+          this.currentTender.status = data.status
+          this.currentTender.progress = data.progress || 0
+          if (data.processed !== undefined) this.currentTender.processed_items = data.processed
+          if (data.total !== undefined) this.currentTender.total_items = data.total
+        }
+        if (data.message) this.searchProgressMsg = data.message
+        // Update tender in list
+        const t = this.tenders.find(x => x.id === tenderId)
+        if (t) { t.status = data.status; t.progress = data.progress || 0 }
+
+        if (data.status === 'done') {
+          this.sseSource.close(); this.sseSource = null
+          this.currentTender = await this.api('GET', `/api/tenders/${tenderId}`)
+          await this.loadTenders()
+          this.toast('Поиск завершён!', 'success')
+        } else if (data.status === 'error') {
+          this.sseSource.close(); this.sseSource = null
+          this.toast(data.message || 'Ошибка', 'error')
+        } else if (data.status === 'parsed' && !data.heartbeat) {
+          this.sseSource.close(); this.sseSource = null
+          this.currentTender = await this.api('GET', `/api/tenders/${tenderId}`)
+          this.toast(`Распознано ${this.currentTender.items?.length || 0} позиций`)
+        }
+      }
+      this.sseSource.onerror = () => {
+        if (this.sseSource) { this.sseSource.close(); this.sseSource = null }
+      }
+    },
+
+    async startSearch() {
+      if (!this.currentTender) return
+      try {
+        await this.api('POST', `/api/tenders/${this.currentTender.id}/search`,
+          { results_per_item: this.searchResultsCount })
+        this.currentTender.status = 'searching'
+        this.currentTender.progress = 0
+        this.subscribeSSE(this.currentTender.id)
+        this.toast('Поиск запущен')
+      } catch (e) {
+        this.toast(e.message, 'error')
+      }
+    },
+
+    downloadReport(fmt) {
+      if (!this.currentTender) return
+      window.open(`/api/tenders/${this.currentTender.id}/report/${fmt}`, '_blank')
+    },
+
+    async confirmDeleteTender(t) {
+      if (!confirm(`Удалить заявку "${t.original_name}"?`)) return
+      try {
+        await this.api('DELETE', `/api/tenders/${t.id}`)
+        await this.loadTenders()
+        this.toast('Заявка удалена')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    async confirmDeleteTenderAndBack(t) {
+      if (!confirm(`Удалить заявку "${t.original_name}"?`)) return
+      try {
+        await this.api('DELETE', `/api/tenders/${t.id}`)
+        await this.loadTenders()
+        this.view = 'tenders'
+        this.toast('Заявка удалена')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    toggleSelectTender(id) {
+      const idx = this.selectedTenders.indexOf(id)
+      if (idx === -1) this.selectedTenders.push(id)
+      else this.selectedTenders.splice(idx, 1)
+    },
+
+    async deleteSelectedTenders() {
+      if (!this.selectedTenders.length) return
+      if (!confirm(`Удалить ${this.selectedTenders.length} заявок?`)) return
+      try {
+        await Promise.all(this.selectedTenders.map(id => this.api('DELETE', `/api/tenders/${id}`)))
+        this.selectedTenders = []
+        await this.loadTenders()
+        this.toast('Заявки удалены')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    // ── Profile ──
+    async saveToken() {
+      try {
+        await this.api('PUT', `/api/users/${this.user.id}/token`, { token: this.profileForm.token })
+        this.user.has_token = !!this.profileForm.token
+        this.profileForm.token = ''
+        this.toast('Токен сохранён')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    async clearToken() {
+      try {
+        await this.api('PUT', `/api/users/${this.user.id}/token`, { token: null })
+        this.user.has_token = false
+        this.toast('Токен удалён')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    async changePassword() {
+      this.profileForm.passwordError = ''
+      if (!this.profileForm.newPassword) return
+      if (this.profileForm.newPassword !== this.profileForm.confirmPassword) {
+        this.profileForm.passwordError = 'Пароли не совпадают'; return
+      }
+      try {
+        await this.api('PUT', `/api/users/${this.user.id}/password`, { password: this.profileForm.newPassword })
+        this.profileForm.newPassword = ''; this.profileForm.confirmPassword = ''
+        this.toast('Пароль изменён')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    // ── Admin ──
+    async loadUsers() {
+      try { this.adminUsers = await this.api('GET', '/api/users') } catch {}
+    },
+
+    async createUser() {
+      this.newUserForm.error = ''
+      if (!this.newUserForm.username || !this.newUserForm.password) {
+        this.newUserForm.error = 'Заполните все поля'; return
+      }
+      try {
+        await this.api('POST', '/api/users', {
+          username: this.newUserForm.username,
+          password: this.newUserForm.password,
+          role: this.newUserForm.role
+        })
+        this.newUserForm = { username: '', password: '', role: 'user', error: '' }
+        this.showCreateUser = false
+        await this.loadUsers()
+        this.toast('Пользователь создан')
+      } catch (e) { this.newUserForm.error = e.message }
+    },
+
+    openChangePassword(u) {
+      this.changePwdUser = u
+      this.changePwdForm = { password: '', confirm: '', error: '' }
+    },
+
+    async toggleUserRole(u) {
+      const newRole = u.role === 'admin' ? 'user' : 'admin'
+      if (!confirm(`Изменить роль "${u.username}" на "${newRole === 'admin' ? 'Администратор' : 'Пользователь'}"?`)) return
+      try {
+        await this.api('PUT', `/api/users/${u.id}/role`, { role: newRole })
+        u.role = newRole
+        this.toast('Роль изменена')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    async confirmDeleteUser(u) {
+      if (!confirm(`Удалить пользователя "${u.username}"? Все его заявки будут удалены.`)) return
+      try {
+        await this.api('DELETE', `/api/users/${u.id}`)
+        await this.loadUsers()
+        this.toast('Пользователь удалён')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    async doChangePasswordAdmin() {
+      this.changePwdForm.error = ''
+      if (!this.changePwdForm.password) return
+      if (this.changePwdForm.password !== this.changePwdForm.confirm) {
+        this.changePwdForm.error = 'Пароли не совпадают'; return
+      }
+      try {
+        await this.api('PUT', `/api/users/${this.changePwdUser.id}/password`,
+          { password: this.changePwdForm.password })
+        this.changePwdUser = null
+        this.toast('Пароль изменён')
+      } catch (e) { this.changePwdForm.error = e.message }
+    },
+
+    // ── System settings ──
+    async loadSysSettings() {
+      try { this.sysSettings = await this.api('GET', '/api/settings') } catch {}
+    },
+
+    async saveSysSettings() {
+      try {
+        await this.api('PUT', '/api/settings', {
+          yandex_api_key: this.sysSettings.yandex_api_key,
+          yandex_folder_id: this.sysSettings.yandex_folder_id,
+        })
+        this.toast('Настройки сохранены')
+      } catch (e) { this.toast(e.message, 'error') }
+    },
+
+    // ── Helpers ──
+    roleLabel(role) {
+      return { root: 'Root', admin: 'Администратор', user: 'Пользователь' }[role] || role
+    },
+
+    statusLabel(s) {
+      return { uploaded: 'Загружен', parsing: 'Парсинг...', parsed: 'Готов к поиску',
+               searching: 'Поиск...', done: 'Завершён', error: 'Ошибка' }[s] || s
+    },
+
+    statusBadgeClass(s) {
+      const m = {
+        uploaded:  'bg-slate-500/15 text-slate-400',
+        parsing:   'bg-amber-500/15 text-amber-400',
+        parsed:    'bg-brand-500/15 text-brand-400',
+        searching: 'bg-amber-500/15 text-amber-400',
+        done:      'bg-green-500/15 text-green-500',
+        error:     'bg-red-500/15 text-red-400',
+      }
+      return m[s] || 'bg-slate-500/15 text-slate-400'
+    },
+
+    fmtDate(d) {
+      if (!d) return ''
+      const dt = new Date(d.includes('T') ? d : d + 'Z')
+      return dt.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric',
+                                              hour: '2-digit', minute: '2-digit' })
+    },
+
+    fmtNum(n) {
+      if (!n) return '0'
+      return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 0 })
+    },
+
+    fmtSize(bytes) {
+      if (bytes < 1024) return bytes + ' Б'
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' КБ'
+      return (bytes / 1048576).toFixed(1) + ' МБ'
+    },
+
+    tenderRows() {
+      if (!this.currentTender || !this.currentTender.items) return []
+      const rows = []
+      for (const item of this.currentTender.items) {
+        if (!item.offers || item.offers.length === 0) {
+          rows.push({ type: 'no-result', item, offer: null, oidx: 0 })
+        } else {
+          for (let oidx = 0; oidx < item.offers.length; oidx++) {
+            rows.push({ type: 'offer', item, offer: item.offers[oidx], oidx })
+          }
+        }
+      }
+      return rows
+    },
+
+    calcSavings(price, maxPrice) {
+      if (!price || !maxPrice) return 0
+      return Math.round((1 - price / maxPrice) * 100 * 10) / 10
+    }
+  }
+}
+</script>
+</body>
+</html>
